@@ -3,17 +3,30 @@ from src.main_logic import AppController
 import pandas as pd
 import os
 import io
+import json
 
 app = Flask(__name__)
 app.secret_key = 'secret-key-for-session'
 
 controller = AppController()
 
-# Получаем список доступных валют (кэшируем при старте)
-try:
-    CURRENCY_LIST = sorted(controller.api.get_available_symbols())
-except:
-    CURRENCY_LIST = ["USD", "EUR", "RUB", "GBP", "JPY", "CHF", "CNY", "CAD", "AUD", "NZD", "INR", "BRL", "ZAR"]
+# Кэш списка валют
+CURRENCY_LIST = []
+cache_file = "currency_list.json"
+if os.path.exists(cache_file):
+    try:
+        with open(cache_file, "r") as f:
+            CURRENCY_LIST = json.load(f)
+    except:
+        pass
+if not CURRENCY_LIST:
+    try:
+        CURRENCY_LIST = sorted(controller.api.get_available_symbols())
+        with open(cache_file, "w") as f:
+            json.dump(CURRENCY_LIST, f)
+    except Exception as e:
+        print(f"Failed to fetch currency list: {e}")
+        CURRENCY_LIST = ["USD", "EUR", "RUB", "GBP", "JPY", "CHF", "CNY", "CAD", "AUD", "NZD", "INR", "BRL", "ZAR"]
 
 @app.route('/')
 def index():
@@ -30,7 +43,6 @@ def login():
         if success:
             session['username'] = username
             session['role'] = role
-            # Инициализируем значения в сессии, если их нет
             if 'base_currency' not in session:
                 session['base_currency'] = 'USD'
                 session['target_currencies'] = 'RUB,EUR'
@@ -67,7 +79,6 @@ def dashboard():
     if user_info is None:
         return redirect(url_for('logout'))
     
-    # Загружаем из сессии текущие значения (или значения по умолчанию)
     base_currency = session.get('base_currency', 'USD')
     target_currencies = session.get('target_currencies', 'RUB,EUR')
     period = session.get('period', 7)
@@ -80,11 +91,9 @@ def dashboard():
     error = None
     
     if request.method == 'POST' and 'fetch' in request.form:
-        # Получаем значения из формы и сохраняем в сессию
         base_currency = request.form['base_currency'].strip().upper()
         target_currencies = request.form['target_currencies'].strip().upper()
         period = int(request.form['period'])
-        
         session['base_currency'] = base_currency
         session['target_currencies'] = target_currencies
         session['period'] = period
@@ -101,7 +110,6 @@ def dashboard():
             else:
                 error = 'Не удалось получить данные от API. Проверьте подключение или валюты.'
     
-    # Получение списка отчётов (для админа или пользователя)
     if session.get('role') == 'admin' and request.args.get('user'):
         selected_user = request.args.get('user')
         reports = controller.get_reports_for_user(selected_user)
@@ -111,6 +119,7 @@ def dashboard():
         if session.get('role') == 'admin':
             all_users = controller.get_all_users()
     
+    # Важно: передаём table_html в шаблон как table
     return render_template('dashboard.html', 
                            user=user_info,
                            table=table_html,
