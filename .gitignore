@@ -1,0 +1,32 @@
+# Виртуальное окружение
+venv/
+env/
+ENV/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Данные (пользователи и отчёты) — не нужно в репозитории
+data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker (образы не хранятся в репозитории)
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
